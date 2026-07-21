@@ -63,11 +63,21 @@ def log_alert(alert: dict) -> None:
         )
 
 
-def recent_alerts(limit: int = 50) -> list[dict]:
+def recent_alerts(limit: int = 50, only_watchlisted: bool = True) -> list[dict]:
     with _lock, _connect() as conn:
-        rows = conn.execute(
-            "SELECT payload, created_at FROM alert_log ORDER BY id DESC LIMIT ?", (limit,)
-        ).fetchall()
+        if only_watchlisted:
+            rows = conn.execute(
+                """
+                SELECT payload, created_at FROM alert_log
+                WHERE symbol IN (SELECT symbol FROM watchlist)
+                ORDER BY id DESC LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT payload, created_at FROM alert_log ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
         results = []
         for payload, created_at in rows:
             alert = json.loads(payload)

@@ -15,6 +15,7 @@ tools don't have enough information to answer confidently, say so instead of
 guessing. Keep answers concise and in plain language for a retail investor."""
 
 MAX_TOOL_ROUNDS = 5
+MAX_HISTORY_TURNS = 8
 
 
 def _to_openai_tools() -> list[dict]:
@@ -35,12 +36,13 @@ def _client() -> Groq:
     return Groq(api_key=settings.groq_api_key)
 
 
-def ask(question: str) -> dict:
+def ask(question: str, history: list[dict] | None = None) -> dict:
+    """`history` is prior plain-text turns ({"role": "user"|"assistant",
+    "content": str}) from the same conversation, most recent last."""
     client = _client()
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": question},
-    ]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages += [{"role": h["role"], "content": h["content"]} for h in (history or [])[-MAX_HISTORY_TURNS:]]
+    messages.append({"role": "user", "content": question})
     trace = []
     tools = _to_openai_tools()
 

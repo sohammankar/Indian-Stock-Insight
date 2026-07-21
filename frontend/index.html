@@ -222,6 +222,8 @@
     const checkAlertsBtn = document.getElementById("check-alerts-btn");
     const alertsList = document.getElementById("alerts-list");
 
+    let conversationHistory = [];
+
     function addMessage(role, text, traceNames) {
       const div = document.createElement("div");
       div.className = "msg " + role;
@@ -247,7 +249,7 @@
         const res = await fetch("/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question, history: conversationHistory }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -262,6 +264,8 @@
             t.textContent = "tools used: " + traceNames.join(", ");
             pending.appendChild(t);
           }
+          conversationHistory.push({ role: "user", content: question });
+          conversationHistory.push({ role: "assistant", content: data.answer });
         }
       } catch (err) {
         pending.className = "msg error";
@@ -354,10 +358,13 @@
         card.className = "alert-card " + alert.type;
 
         if (alert.type === "bulk_deal") {
+          const clientText = alert.clients.join(", ") + (alert.more_clients > 0 ? " +" + alert.more_clients + " more" : "");
           card.innerHTML =
-            '<span class="alert-symbol">' + alert.symbol + '</span> — bulk deal<br>' +
-            '<span class="alert-detail">' + alert.buy_sell + ' ' + Number(alert.qty).toLocaleString("en-IN") +
-            ' @ ₹' + alert.price + ' (' + alert.date + ')</span>';
+            '<span class="alert-symbol">' + alert.symbol + '</span> — bulk deal (' + alert.num_trades + ' trade' + (alert.num_trades === 1 ? "" : "s") + ')<br>' +
+            '<span class="alert-detail">Buy ' + Number(alert.buy_qty).toLocaleString("en-IN") +
+            ' / Sell ' + Number(alert.sell_qty).toLocaleString("en-IN") +
+            ' · ₹' + Number(alert.total_value).toLocaleString("en-IN") + ' total (' + alert.date + ')<br>' +
+            clientText + '</span>';
         } else if (alert.type === "shareholding_change") {
           const sign = alert.change_pct > 0 ? "+" : "";
           card.innerHTML =

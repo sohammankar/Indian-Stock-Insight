@@ -15,17 +15,21 @@ tools don't have enough information to answer confidently, say so instead of
 guessing. Keep answers concise and in plain language for a retail investor."""
 
 MAX_TOOL_ROUNDS = 5
+MAX_HISTORY_TURNS = 8
 
 
 def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def ask(question: str) -> dict:
-    """Run the tool-calling loop for a single question. Returns the final answer text
-    plus a trace of which tools were called, for transparency/debugging."""
+def ask(question: str, history: list[dict] | None = None) -> dict:
+    """Run the tool-calling loop for a single question. `history` is prior
+    plain-text turns ({"role": "user"|"assistant", "content": str}) from the
+    same conversation, most recent last. Returns the final answer text plus
+    a trace of which tools were called, for transparency/debugging."""
     client = _client()
-    messages = [{"role": "user", "content": question}]
+    messages = [{"role": h["role"], "content": h["content"]} for h in (history or [])[-MAX_HISTORY_TURNS:]]
+    messages.append({"role": "user", "content": question})
     trace = []
 
     for _ in range(MAX_TOOL_ROUNDS):
