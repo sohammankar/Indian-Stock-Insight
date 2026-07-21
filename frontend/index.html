@@ -371,17 +371,31 @@
       }
     }
 
-    async function checkAlerts() {
+    // Alerts also run automatically in the background (server-side scheduler),
+    // so this just loads whatever has been logged so far.
+    async function loadRecentAlerts() {
+      try {
+        const res = await fetch("/alerts/recent");
+        const data = await res.json();
+        if (res.ok) renderAlerts(data.alerts || []);
+      } catch (err) {
+        // silent - background poll, don't disrupt the UI on a transient failure
+      }
+    }
+
+    // Forces an immediate check (rather than waiting for the next background
+    // tick) and then reloads the full recent-alerts log.
+    async function checkAlertsNow() {
       checkAlertsBtn.disabled = true;
       checkAlertsBtn.textContent = "Checking...";
       try {
         const res = await fetch("/alerts/check");
         const data = await res.json();
-        if (res.ok) {
-          renderAlerts(data.alerts || []);
-        } else {
+        if (!res.ok) {
           alertsList.innerHTML = '<div class="alerts-empty">' + (data.detail || "Failed to check alerts.") + '</div>';
+          return;
         }
+        await loadRecentAlerts();
       } catch (err) {
         alertsList.innerHTML = '<div class="alerts-empty">Network error checking alerts.</div>';
       } finally {
@@ -390,7 +404,10 @@
       }
     }
 
-    checkAlertsBtn.addEventListener("click", checkAlerts);
+    checkAlertsBtn.addEventListener("click", checkAlertsNow);
+
+    loadRecentAlerts();
+    setInterval(loadRecentAlerts, 60000);
 
     loadWatchlist();
   </script>

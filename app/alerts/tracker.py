@@ -25,17 +25,17 @@ def check_bulk_deals(tickers: list[str], days: int = 1) -> list[dict]:
             price=float(deal.get("BD_TP_WATP", 0)),
         )
         if is_new:
-            alerts.append(
-                {
-                    "type": "bulk_deal",
-                    "symbol": symbol,
-                    "date": deal.get("BD_DT_DATE"),
-                    "client_name": deal.get("BD_CLIENT_NAME"),
-                    "buy_sell": deal.get("BD_BUY_SELL"),
-                    "qty": deal.get("BD_QTY_TRD"),
-                    "price": deal.get("BD_TP_WATP"),
-                }
-            )
+            alert = {
+                "type": "bulk_deal",
+                "symbol": symbol,
+                "date": deal.get("BD_DT_DATE"),
+                "client_name": deal.get("BD_CLIENT_NAME"),
+                "buy_sell": deal.get("BD_BUY_SELL"),
+                "qty": deal.get("BD_QTY_TRD"),
+                "price": deal.get("BD_TP_WATP"),
+            }
+            store.log_alert(alert)
+            alerts.append(alert)
     return alerts
 
 
@@ -64,16 +64,16 @@ def check_shareholding(tickers: list[str]) -> list[dict]:
 
         change = promoter_pct - previous["promoter_pct"]
         if abs(change) >= SHAREHOLDING_ALERT_THRESHOLD_PCT:
-            alerts.append(
-                {
-                    "type": "shareholding_change",
-                    "symbol": symbol,
-                    "period_date": period_date,
-                    "previous_promoter_pct": previous["promoter_pct"],
-                    "current_promoter_pct": promoter_pct,
-                    "change_pct": round(change, 2),
-                }
-            )
+            alert = {
+                "type": "shareholding_change",
+                "symbol": symbol,
+                "period_date": period_date,
+                "previous_promoter_pct": previous["promoter_pct"],
+                "current_promoter_pct": promoter_pct,
+                "change_pct": round(change, 2),
+            }
+            store.log_alert(alert)
+            alerts.append(alert)
     return alerts
 
 

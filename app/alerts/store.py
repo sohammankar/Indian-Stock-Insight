@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import threading
 from pathlib import Path
@@ -40,7 +41,39 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS alert_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
     return conn
+
+
+def log_alert(alert: dict) -> None:
+    with _lock, _connect() as conn:
+        conn.execute(
+            "INSERT INTO alert_log (type, symbol, payload) VALUES (?, ?, ?)",
+            (alert["type"], alert["symbol"], json.dumps(alert)),
+        )
+
+
+def recent_alerts(limit: int = 50) -> list[dict]:
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT payload, created_at FROM alert_log ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        results = []
+        for payload, created_at in rows:
+            alert = json.loads(payload)
+            alert["created_at"] = created_at
+            results.append(alert)
+        return results
 
 
 def add_to_watchlist(symbol: str) -> None:

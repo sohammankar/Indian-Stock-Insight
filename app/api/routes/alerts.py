@@ -23,3 +23,8 @@ def check(
         return {"alerts": tracker.check_all(ticker_list)}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
+
+
+@router.get("/recent")
+def recent(limit: int = 50):
+    return {"alerts": store.recent_alerts(limit=limit)}
