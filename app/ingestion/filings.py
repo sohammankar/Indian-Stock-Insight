@@ -7,19 +7,27 @@ from nse import NSE
 CACHE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "nse_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+IDLE_TIMEOUT = timedelta(minutes=15)
+
 _client: NSE | None = None
+_last_used: datetime | None = None
 _client_lock = threading.Lock()
 
 
 def _get_client() -> NSE:
-    """Reuse one NSE client for the process lifetime so its cookie cache
-    actually gets used instead of being wiped after every call."""
-    global _client
-    if _client is None:
-        with _client_lock:
-            if _client is None:
-                _client = NSE(download_folder=CACHE_DIR)
-    return _client
+    """Reuse one NSE client across calls so its cookie cache actually gets
+    used instead of being wiped after every call, but recycle it after 15
+    minutes of inactivity rather than holding one session open forever."""
+    global _client, _last_used
+    now = datetime.now()
+    with _client_lock:
+        if _client is not None and now - _last_used > IDLE_TIMEOUT:
+            _client._session.close()
+            _client = None
+        if _client is None:
+            _client = NSE(download_folder=CACHE_DIR)
+        _last_used = now
+        return _client
 
 
 def get_announcements(symbol: str, days: int = 30) -> list[dict]:
