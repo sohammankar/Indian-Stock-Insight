@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stock-insights-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "source venv/bin/activate && uvicorn app.main:app --port 8123"],
+      "port": 8123
+    }
+  ]
+}
