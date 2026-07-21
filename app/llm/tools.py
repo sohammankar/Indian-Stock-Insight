@@ -55,6 +55,23 @@ TOOL_DEFINITIONS = [
             "properties": {"days": {"type": "integer", "description": "Lookback window in days", "default": 7}},
         },
     },
+    {
+        "name": "get_block_deals",
+        "description": "Get today's block deals across the whole market (single large negotiated trades) - another signal of institutional/smart-money activity.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "get_board_meetings",
+        "description": "Get scheduled/recent board meetings for an NSE-listed company, including agenda (e.g. results, dividends, fundraising).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "NSE symbol, e.g. TCS"},
+                "days": {"type": "integer", "description": "Lookback window in days", "default": 90},
+            },
+            "required": ["ticker"],
+        },
+    },
 ]
 
 
@@ -69,4 +86,8 @@ def execute_tool(name: str, tool_input: dict):
         return filings.get_shareholding(tool_input["ticker"])
     if name == "get_bulk_deals":
         return filings.get_bulk_deals(days=tool_input.get("days", 7))
+    if name == "get_block_deals":
+        return filings.get_block_deals()
+    if name == "get_board_meetings":
+        return filings.get_board_meetings(tool_input["ticker"], days=tool_input.get("days", 90))
     raise ValueError(f"Unknown tool: {name}")
