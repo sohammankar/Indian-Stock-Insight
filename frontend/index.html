@@ -15,6 +15,8 @@
     --accent: #3b82f6;
     --user-bubble: #1e2a38;
     --assistant-bubble: #131a22;
+    --up: #22c55e;
+    --down: #ef4444;
   }
   * { box-sizing: border-box; }
   body {
@@ -33,6 +35,84 @@
   header h1 { font-size: 1.1rem; margin: 0; }
   header p { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
 
+  .layout {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ---- Sidebar / watchlist ---- */
+  aside {
+    width: 280px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.9rem;
+    overflow-y: auto;
+  }
+  aside h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
+
+  #watchlist-form { display: flex; gap: 0.4rem; }
+  #watchlist-form input {
+    flex: 1;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.85rem;
+    min-width: 0;
+  }
+  #watchlist-form button {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  #watchlist-items { display: flex; flex-direction: column; gap: 0.4rem; }
+  .ticker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  .ticker-row .remove-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-weight: 400;
+    padding: 0 0.2rem;
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .ticker-row .remove-btn:hover { color: var(--down); }
+  .watchlist-empty { color: var(--muted); font-size: 0.8rem; }
+
+  #check-alerts-btn { width: 100%; font-size: 0.85rem; }
+
+  #alerts-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .alert-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  .alert-card .alert-symbol { font-weight: 700; }
+  .alert-card.bulk_deal .alert-symbol { color: var(--accent); }
+  .alert-card.shareholding_change .alert-symbol { color: #eab308; }
+  .alert-card .alert-detail { color: var(--muted); }
+  .alerts-empty { color: var(--muted); font-size: 0.8rem; }
+
+  /* ---- Chat ---- */
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
   #chat {
     flex: 1;
     overflow-y: auto;
@@ -50,7 +130,7 @@
   .msg.error { align-self: flex-start; background: #3a1d1d; border: 1px solid #6b2b2b; }
   .trace { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
 
-  form {
+  form.chat-form {
     display: flex;
     gap: 0.6rem;
     padding: 1rem 1.5rem;
@@ -59,7 +139,7 @@
     width: 100%;
     margin: 0 auto;
   }
-  input {
+  form.chat-form input {
     flex: 1;
     padding: 0.7rem 0.9rem;
     border-radius: 8px;
@@ -97,19 +177,37 @@
     <p>Ask about NSE prices, filings, shareholding patterns, and bulk deals.</p>
   </header>
 
-  <div id="chat"></div>
+  <div class="layout">
+    <aside>
+      <h2>Watchlist</h2>
+      <form id="watchlist-form">
+        <input id="watchlist-input" type="text" placeholder="e.g. TCS" autocomplete="off" />
+        <button type="submit">Add</button>
+      </form>
+      <div id="watchlist-items"></div>
 
-  <div class="examples" id="examples">
-    <button type="button">What's the current price of TCS?</button>
-    <button type="button">What does Reliance's shareholding pattern look like?</button>
-    <button type="button">Any notable bulk deals this week?</button>
-    <button type="button">Any recent announcements from Infosys?</button>
+      <button type="button" id="check-alerts-btn">Check alerts</button>
+
+      <h2>Alerts</h2>
+      <div id="alerts-list"><div class="alerts-empty">No alerts checked yet.</div></div>
+    </aside>
+
+    <main>
+      <div id="chat"></div>
+
+      <div class="examples" id="examples">
+        <button type="button">What's the current price of TCS?</button>
+        <button type="button">What does Reliance's shareholding pattern look like?</button>
+        <button type="button">Any notable bulk deals this week?</button>
+        <button type="button">Any recent announcements from Infosys?</button>
+      </div>
+
+      <form id="form" class="chat-form">
+        <input id="input" type="text" placeholder="Ask a question about an NSE stock..." autocomplete="off" />
+        <button type="submit" id="send">Send</button>
+      </form>
+    </main>
   </div>
-
-  <form id="form">
-    <input id="input" type="text" placeholder="Ask a question about an NSE stock..." autocomplete="off" />
-    <button type="submit" id="send">Send</button>
-  </form>
 
   <script>
     const chat = document.getElementById("chat");
@@ -117,6 +215,12 @@
     const input = document.getElementById("input");
     const send = document.getElementById("send");
     const examples = document.getElementById("examples");
+
+    const watchlistForm = document.getElementById("watchlist-form");
+    const watchlistInput = document.getElementById("watchlist-input");
+    const watchlistItems = document.getElementById("watchlist-items");
+    const checkAlertsBtn = document.getElementById("check-alerts-btn");
+    const alertsList = document.getElementById("alerts-list");
 
     function addMessage(role, text, traceNames) {
       const div = document.createElement("div");
@@ -177,6 +281,118 @@
     examples.addEventListener("click", (e) => {
       if (e.target.tagName === "BUTTON") ask(e.target.textContent);
     });
+
+    // ---- Watchlist ----
+
+    function renderWatchlist(tickers) {
+      watchlistItems.innerHTML = "";
+      if (!tickers.length) {
+        watchlistItems.innerHTML = '<div class="watchlist-empty">No tickers yet.</div>';
+        return;
+      }
+      for (const ticker of tickers) {
+        const row = document.createElement("div");
+        row.className = "ticker-row";
+        const label = document.createElement("span");
+        label.textContent = ticker;
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "remove-btn";
+        removeBtn.textContent = "✕";
+        removeBtn.addEventListener("click", () => removeTicker(ticker));
+        row.appendChild(label);
+        row.appendChild(removeBtn);
+        watchlistItems.appendChild(row);
+      }
+    }
+
+    async function loadWatchlist() {
+      try {
+        const res = await fetch("/watchlist");
+        const data = await res.json();
+        renderWatchlist(data.tickers || []);
+      } catch (err) {
+        watchlistItems.innerHTML = '<div class="watchlist-empty">Failed to load watchlist.</div>';
+      }
+    }
+
+    async function addTicker(ticker) {
+      const res = await fetch("/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker }),
+      });
+      const data = await res.json();
+      if (res.ok) renderWatchlist(data.tickers || []);
+    }
+
+    async function removeTicker(ticker) {
+      const res = await fetch("/watchlist/" + encodeURIComponent(ticker), { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) renderWatchlist(data.tickers || []);
+    }
+
+    watchlistForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const ticker = watchlistInput.value.trim();
+      if (ticker) {
+        addTicker(ticker);
+        watchlistInput.value = "";
+      }
+    });
+
+    // ---- Alerts ----
+
+    function renderAlerts(alerts) {
+      alertsList.innerHTML = "";
+      if (!alerts.length) {
+        alertsList.innerHTML = '<div class="alerts-empty">No new alerts.</div>';
+        return;
+      }
+      for (const alert of alerts) {
+        const card = document.createElement("div");
+        card.className = "alert-card " + alert.type;
+
+        if (alert.type === "bulk_deal") {
+          card.innerHTML =
+            '<span class="alert-symbol">' + alert.symbol + '</span> — bulk deal<br>' +
+            '<span class="alert-detail">' + alert.buy_sell + ' ' + Number(alert.qty).toLocaleString("en-IN") +
+            ' @ ₹' + alert.price + ' (' + alert.date + ')</span>';
+        } else if (alert.type === "shareholding_change") {
+          const sign = alert.change_pct > 0 ? "+" : "";
+          card.innerHTML =
+            '<span class="alert-symbol">' + alert.symbol + '</span> — promoter holding change<br>' +
+            '<span class="alert-detail">' + alert.previous_promoter_pct + '% → ' + alert.current_promoter_pct +
+            '% (' + sign + alert.change_pct + 'pp)</span>';
+        } else {
+          card.textContent = JSON.stringify(alert);
+        }
+        alertsList.appendChild(card);
+      }
+    }
+
+    async function checkAlerts() {
+      checkAlertsBtn.disabled = true;
+      checkAlertsBtn.textContent = "Checking...";
+      try {
+        const res = await fetch("/alerts/check");
+        const data = await res.json();
+        if (res.ok) {
+          renderAlerts(data.alerts || []);
+        } else {
+          alertsList.innerHTML = '<div class="alerts-empty">' + (data.detail || "Failed to check alerts.") + '</div>';
+        }
+      } catch (err) {
+        alertsList.innerHTML = '<div class="alerts-empty">Network error checking alerts.</div>';
+      } finally {
+        checkAlertsBtn.disabled = false;
+        checkAlertsBtn.textContent = "Check alerts";
+      }
+    }
+
+    checkAlertsBtn.addEventListener("click", checkAlerts);
+
+    loadWatchlist();
   </script>
 </body>
 </html>
