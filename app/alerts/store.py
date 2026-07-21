@@ -33,7 +33,32 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS watchlist (
+            symbol TEXT PRIMARY KEY
+        )
+        """
+    )
     return conn
+
+
+def add_to_watchlist(symbol: str) -> None:
+    with _lock, _connect() as conn:
+        conn.execute("INSERT OR IGNORE INTO watchlist (symbol) VALUES (?)", (symbol,))
+
+
+def remove_from_watchlist(symbol: str) -> bool:
+    """Returns True if the symbol was present and got removed."""
+    with _lock, _connect() as conn:
+        cursor = conn.execute("DELETE FROM watchlist WHERE symbol = ?", (symbol,))
+        return cursor.rowcount > 0
+
+
+def list_watchlist() -> list[str]:
+    with _lock, _connect() as conn:
+        rows = conn.execute("SELECT symbol FROM watchlist ORDER BY symbol").fetchall()
+        return [r[0] for r in rows]
 
 
 def record_bulk_deal_if_new(symbol: str, deal_date: str, client_name: str, buy_sell: str, qty: int, price: float) -> bool:
