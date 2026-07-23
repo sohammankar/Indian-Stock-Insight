@@ -1,11 +1,13 @@
 import json
 
+import groq
 from groq import Groq
 
 from app.config import settings
 from app.llm.tools import TOOL_DEFINITIONS, execute_tool
 
 MODEL = "llama-3.3-70b-versatile"
+MAX_GENERATION_RETRIES = 2
 
 SYSTEM_PROMPT = """You are a research assistant for the Indian stock market (NSE).
 Answer questions by calling the available tools to pull live prices, corporate
@@ -36,6 +38,24 @@ def _client() -> Groq:
     return Groq(api_key=settings.groq_api_key)
 
 
+def _generate(client: Groq, messages: list[dict], tools: list[dict]):
+    """Llama's tool-calling occasionally emits a malformed function call
+    (groq raises a 400 tool_use_failed for this) - it's a generation
+    hiccup, not a bad request, so retry a couple of times before giving up."""
+    last_error = None
+    for _ in range(1 + MAX_GENERATION_RETRIES):
+        try:
+            return client.chat.completions.create(
+                model=MODEL,
+                max_tokens=1024,
+                messages=messages,
+                tools=tools,
+            )
+        except groq.BadRequestError as e:
+            last_error = e
+    raise last_error
+
+
 def ask(question: str, history: list[dict] | None = None) -> dict:
     """`history` is prior plain-text turns ({"role": "user"|"assistant",
     "content": str}) from the same conversation, most recent last."""
@@ -47,12 +67,14 @@ def ask(question: str, history: list[dict] | None = None) -> dict:
     tools = _to_openai_tools()
 
     for _ in range(MAX_TOOL_ROUNDS):
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=1024,
-            messages=messages,
-            tools=tools,
-        )
+        try:
+            response = _generate(client, messages, tools)
+        except groq.BadRequestError:
+            return {
+                "answer": "I had trouble processing that question - could you rephrase it?",
+                "trace": trace,
+            }
+
         message = response.choices[0].message
 
         if not message.tool_calls:
@@ -67,11 +89,12 @@ def ask(question: str, history: list[dict] | None = None) -> dict:
         )
 
         for tc in message.tool_calls:
-            tool_input = json.loads(tc.function.arguments)
             try:
+                tool_input = json.loads(tc.function.arguments)
                 result = execute_tool(tc.function.name, tool_input)
                 content = json.dumps(result, default=str)[:8000]
             except Exception as e:
+                tool_input = {}
                 content = f"Error: {e}"
             trace.append({"tool": tc.function.name, "input": tool_input})
             messages.append(
