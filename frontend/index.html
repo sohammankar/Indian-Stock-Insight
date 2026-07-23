@@ -124,10 +124,16 @@
     width: 100%;
     margin: 0 auto;
   }
-  .msg { max-width: 85%; padding: 0.7rem 1rem; border-radius: 10px; line-height: 1.45; white-space: pre-wrap; }
-  .msg.user { align-self: flex-end; background: var(--user-bubble); }
+  .msg { max-width: 85%; padding: 0.7rem 1rem; border-radius: 10px; line-height: 1.45; }
+  .msg.user { align-self: flex-end; background: var(--user-bubble); white-space: pre-wrap; }
   .msg.assistant { align-self: flex-start; background: var(--assistant-bubble); border: 1px solid var(--border); }
-  .msg.error { align-self: flex-start; background: #3a1d1d; border: 1px solid #6b2b2b; }
+  .msg.error { align-self: flex-start; background: #3a1d1d; border: 1px solid #6b2b2b; white-space: pre-wrap; }
+  .msg p { margin: 0 0 0.6rem; }
+  .msg p:last-child { margin-bottom: 0; }
+  .msg ul, .msg ol { margin: 0 0 0.6rem; padding-left: 1.3rem; }
+  .msg ul:last-child, .msg ol:last-child { margin-bottom: 0; }
+  .msg li { margin-bottom: 0.25rem; }
+  .msg strong { font-weight: 700; }
   .trace { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
 
   form.chat-form {
@@ -224,6 +230,47 @@
 
     let conversationHistory = [];
 
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // Minimal markdown -> HTML: bold, bullet/numbered lists, paragraphs.
+    // Enough for LLM-style answers without pulling in a markdown library.
+    function renderMarkdown(text) {
+      const html = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      const lines = html.split("\n");
+      const blocks = [];
+      let list = null; // { tag: "ul"|"ol", items: [] }
+
+      const flushList = () => {
+        if (list) {
+          blocks.push("<" + list.tag + ">" + list.items.map((i) => "<li>" + i + "</li>").join("") + "</" + list.tag + ">");
+          list = null;
+        }
+      };
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        const bulletMatch = line.match(/^[-*]\s+(.*)/);
+        const numberedMatch = line.match(/^\d+[.)]\s+(.*)/);
+
+        if (bulletMatch || numberedMatch) {
+          const tag = numberedMatch ? "ol" : "ul";
+          if (!list || list.tag !== tag) {
+            flushList();
+            list = { tag, items: [] };
+          }
+          list.items.push((bulletMatch || numberedMatch)[1]);
+          continue;
+        }
+
+        flushList();
+        if (line) blocks.push("<p>" + line + "</p>");
+      }
+      flushList();
+      return blocks.join("");
+    }
+
     function addMessage(role, text, traceNames) {
       const div = document.createElement("div");
       div.className = "msg " + role;
@@ -256,7 +303,7 @@
           pending.className = "msg error";
           pending.textContent = data.detail || "Something went wrong.";
         } else {
-          pending.textContent = data.answer;
+          pending.innerHTML = renderMarkdown(data.answer);
           const traceNames = (data.trace || []).map((t) => t.tool);
           if (traceNames.length) {
             const t = document.createElement("div");
